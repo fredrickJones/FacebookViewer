@@ -2,7 +2,7 @@
 var Express = require('express');
 var Session = require('express-session');
 var Passport = require('passport');
-var FacebookStrategy = require('passport-facebook');
+var FacebookStrategy = require('passport-facebook').Strategy;
 
 var App = Express();
 var port = 8080;
