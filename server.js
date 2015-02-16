@@ -1,17 +1,45 @@
 'use strict';
-var Express = require('express');
-var Session = require('express-session');
-var Passport = require('passport');
-var FacebookStrategy = require('passport-facebook').Strategy;
+// modules
+var Express = require('express'),
+	Session = require('express-session'),
+	Passport = require('passport'),
+	FacebookStrategy = require('passport-facebook').Strategy,
+	Mongoose = require('mongoose'),
+	BodyParser = require('body-parser'),
+	MongoJS = require('mongojs');
 
-var App = Express();
+// files
+var fakeData = require('./seed-data'),
+	controller = require('./lib/controllers/mainCtrl'),
+	agent = require('./lib/models/agentModel');
+
+// environment variables
+var app = Express();
 var port = 8080;
+var mongoURI = 'localhost:27017/facebook-mongo';
 
 // middleware
-App.use(Session({secret: 'Feidnow83i372ifADFGjuw823ueojygis'}));
-App.use(Passport.initialize());
-App.use(Passport.session());
+app.use(Session({secret: 'Feidnow83i372ifADFGjuw823ueojygis'}));
+app.use(Passport.initialize());
+app.use(Passport.session());
 
+app.use(BodyParser.json());
+
+// save agent
+controller.saveAgent(fakeData.agents[1]);
+
+app.post('/api/agent', function(req,res) {
+	agent.create(req.body).then(function(resp) {
+		res.json(resp);
+	}, function(err) {
+		res.status(500).json(err);
+	});
+});
+
+agent.remove({_id: ''}, function(err, resp) {
+
+});
+controller.removeAgent('');
 
 Passport.use(new FacebookStrategy({
 	clientID: '1556041261332848',
@@ -21,29 +49,42 @@ Passport.use(new FacebookStrategy({
 	return done(null, profile);
 }));
 
-App.get('/auth/facebook', Passport.authenticate('facebook'));
-App.get('/auth/facebook/callback', Passport.authenticate('facebook', {
+Passport.serializeUser(function(user, done) {
+	done(null, user);
+});
+
+Passport.deserializeUser(function(obj, done) {
+	done(null, obj);
+});
+
+var isAuthed = function(req, res, next) {
+	if(!req.isAuthenticated()) {
+		res.redirect('/failure');
+	} else {
+		next();
+	}
+};
+
+// endpoints
+app.get('/me', isAuthed, function(req, res) {
+	res.json(req.user);
+});
+
+app.get('/auth/facebook', Passport.authenticate('facebook'));
+
+app.get('/auth/facebook/callback', Passport.authenticate('facebook', {
 		successRedirect: '/me',
 		failureRedirect:'/failure'
 	}));
 
 
-Passport.serializeUser(function(user, done) {
-	done(null, user);
-});
-Passport.deserializeUser(function(obj, done) {
-	done(null, obj);
-});
 
+Mongoose.connect(mongoURI);
 
-App.get('/me', function(req, res) {
-	res.json(req.user);
+Mongoose.connection.once('open', function() {
+	// console.log('connected to mongo via ' + mongoURI);
 });
 
-
-
-
-
-App.listen(port, function() {
+app.listen(port, function() {
 	// console.log('Now listening on port 8080');
 });
